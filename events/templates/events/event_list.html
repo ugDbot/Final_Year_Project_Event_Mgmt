@@ -1,0 +1,35 @@
+{% extends 'events/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1 class="text-center mb-4">Upcoming Events</h1>
+
+    {% if user.is_authenticated %}
+        <p class="text-center text-muted">Logged in as: <strong>{{ user.username }}</strong></p>
+        <a href="{% url 'event_create' %}" class="btn btn-success mb-3">+ Create Event</a>
+        <a href="{% url 'my_events' %}" class="btn btn-info mb-3">My Events</a> <!-- Link to 'My Events' page -->
+    {% endif %}
+
+    <div class="row">
+        {% for event in events %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ event.name }}</h5>
+                        <p class="card-text"><i class="fa fa-calendar"></i> {{ event.date }}</p>
+                        <p class="card-text"><i class="fa fa-map-marker-alt"></i> {{ event.location }}</p>
+
+                        <a href="{% url 'event_detail' event.id %}" class="btn btn-outline-dark mt-2">View Details</a>
+
+                        {% if event.id not in user_attended_events %}
+                            <a href="{% url 'join_event' event.id %}" class="btn btn-outline-dark">Join Event</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-center">No events available.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

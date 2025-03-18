@@ -1,0 +1,52 @@
+{% extends 'events/base.html' %}
+{% load form_filters %}
+
+{% block content %}
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-danger">{{ message }}
+            {{ field.errors.0 }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% for field in form %}
+    <div class="mb-3">
+        {% if field.errors %}
+            <div class="text-danger">
+                {{ field.errors.0 }}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}
+
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="card shadow-lg p-4" style="width: 350px; border-radius: 12px;">
+            <h3 class="text-center">Sign Up</h3>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    {{ form.username|add_class:"form-control" }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    {{ form.email|add_class:"form-control" }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    {{ form.password1|add_class:"form-control" }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password</label>
+                    {{ form.password2|add_class:"form-control" }}
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+            </form>
+            <p class="text-center mt-3">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+        </div>
+    </div>
+
+
+{% endblock %}
