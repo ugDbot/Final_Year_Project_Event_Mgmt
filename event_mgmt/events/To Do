@@ -1,0 +1,101 @@
+
+- The buy ticket works but now we need to work on the buy ticket button giving way for users that have tickets to actually join/leave the event
+UPDATE: We can not make the buy ticket disappear for some reason but to remedy this, whenever the user joins an event they just go to the my events tab
+        and leave the event from there
+
+- Lets see if we can do timed notifications via email till the date of an event
+UPDATE: We will just put this in recommendatins in my chapter 5
+
+- The paystack tends to not work when we are not online and when we go back to the buy ticket page or home page, we still get a
+ "you have purchased a ticket" notification which is not supposed to be so (It must be the no internet issue)
+ UPDATE: It was actually a network issue, our code is working fine but just to avoid this later on i decided to make a mock payment kind of system
+            for our program to use incase the internet is bad
+
+- I have implemented a policy where we collect 5% from every ticket sale the user makes, i have to find a way to withdraw the 5%
+    or we can make it in such a way that the user pays first before they can put a ticket tag on their events
+UPDATE: We can do this but i don't think we should implement because we do not collect the user's account details and in order for the split to work
+        we have to collect their details and make a sub account for the splits, I have created a file where the functionality can be implemented if need be
+
+
+
+
+# Buy Ticket for an Event
+@login_required
+def buy_ticket(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+
+    # Check if user already has a ticket
+    if Ticket.objects.filter(event=event, buyer=request.user).exists():
+        messages.warning(request, "You already have a ticket for this event!")
+        return redirect("event_detail", event_id=event_id)
+
+    # Create a ticket
+    Ticket.objects.create(event=event, buyer=request.user)
+    messages.success(request, "Ticket purchased successfully!")
+
+    paystack_url = "https://api.paystack.co/transaction/initialize"
+    headers = {
+        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+        "Content-Type": "application/json",
+    }
+    data = {
+        "email": request.user.email,
+        "amount": int(event.price * 100),  # Convert to kobo
+        "callback_url": request.build_absolute_uri(reverse("verify_payment")),  # FIXED
+        "metadata": {"event_id": str(event.id)},  # Store event ID in metadata
+    }
+
+    response = requests.post(paystack_url, json=data, headers=headers)
+    res_data = response.json()
+
+    if res_data.get("status"):
+        return redirect(res_data["data"]["authorization_url"])  # Redirect to Paystack
+
+    messages.error(request, "Payment initiation failed. Please try again.")
+    return redirect("event_detail", event_id=event_id)
+
+@login_required
+def verify_payment(request):
+    reference = request.GET.get("reference")
+    if not reference:
+        messages.error(request, "Invalid payment reference.")
+        return redirect("event_list")
+
+    # Verify the transaction with Paystack
+    url = f"https://api.paystack.co/transaction/verify/{reference}"
+    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+
+    response = requests.get(url, headers=headers)
+    res_data = response.json()
+
+    if res_data.get("status") and res_data["data"]["status"] == "success":
+        event_id = res_data["data"]["metadata"]["event_id"]  # Retrieve event_id from metadata
+        event = get_object_or_404(Event, id=event_id)
+
+        # Check if ticket already exists to avoid duplicates
+        ticket, created = Ticket.objects.get_or_create(event=event, buyer=request.user)
+
+        if created:
+            # Automatically add user as an attendee after successful payment
+            Attendee.objects.get_or_create(event=event, user=request.user)
+            messages.success(request, "Payment successful! You have been registered for the event.")
+        else:
+            messages.info(request, "You already have a ticket for this event.")
+
+        return redirect("event_detail", event_id=event_id)
+
+    messages.error(request, "Payment verification failed. Please contact support.")
+    return redirect("event_list")
+
+def initiate_paystack_payment(user, amount, email):
+    url = settings.PAYSTACK_PAYMENT_URL
+    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
+    data = {"email": email, "amount": int(amount * 100)}  # Convert to kobo
+
+    response = requests.post(url, headers=headers, json=data)
+    response_data = response.json()
+
+    if response.status_code == 200 and response_data["status"]:
+        return response_data["data"]["authorization_url"], response_data["data"]["reference"]
+    else:
+        return None, None
